@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// Game represents a werewolf game session.
 type Game struct {
 	Id          string   `json:"id"`
 	Players     []Player `json:"players"`
@@ -19,22 +18,20 @@ type Game struct {
 	CurrentStep string   `json:"current_step"`
 }
 
-// Player represents a player in the game.
 type Player struct {
 	Id    string `json:"id"`
 	Name  string `json:"name"`
 	Role  Role   `json:"role"`
 	Trait Trait  `json:"trait"`
 	Alive bool   `json:"alive"`
+	Mayor bool   `json:"mayor"`
 }
 
-// PlayerRequest is the HTTP request body for creating a game.
 type PlayerRequest struct {
 	Names     []string `json:"names"`
 	WolfCount int      `json:"wolf_count"`
 }
 
-// NewGameWithPlayers creates a new Game from a list of players.
 func NewGameWithPlayers(players []Player, wolfNumber int) Game {
 	return Game{
 		Id:          uuid.New().String(),
@@ -45,18 +42,17 @@ func NewGameWithPlayers(players []Player, wolfNumber int) Game {
 	}
 }
 
-// NewPlayer creates a new Player with the given name, role and trait.
-func NewPlayer(name string, role Role, trait Trait) Player {
+func NewPlayer(name string, role Role, trait Trait, mayor bool) Player {
 	return Player{
 		Id:    uuid.New().String(),
 		Name:  name,
 		Role:  role,
 		Trait: trait,
 		Alive: true,
+		Mayor: mayor,
 	}
 }
 
-// NewGame parses the HTTP request and initializes a game.
 func NewGame(r *http.Request) Game {
 	var req PlayerRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -76,9 +72,11 @@ func NewGame(r *http.Request) Game {
 		roles[i], roles[j] = roles[j], roles[i]
 	})
 
+	mayorIndex := rand.Intn(len(names))
+
 	players := make([]Player, len(names))
 	for i, name := range names {
-		players[i] = NewPlayer(name, roles[i], Trait(rand.Intn(5)))
+		players[i] = NewPlayer(name, roles[i], Trait(rand.Intn(5)), i == mayorIndex)
 	}
 
 	newGame := NewGameWithPlayers(players, req.WolfCount)
@@ -90,19 +88,89 @@ func NewGame(r *http.Request) Game {
 	return newGame
 }
 
-func (g *Game) killRandomAliveVillager() (Player, error) {
+func (g *Game) setMayor(idx int) {
+	for i := range g.Players {
+		g.Players[i].Mayor = false
+	}
+	g.Players[idx].Mayor = true
+	log.Printf("[GAME] Mayor set | id=%s name=%s", g.Id, g.Players[idx].Name)
+}
+
+func (g *Game) assignNewMayor() {
 	var candidates []int
 	for i, player := range g.Players {
-		if player.Alive && player.Role != Wolf {
+		if player.Alive {
 			candidates = append(candidates, i)
 		}
 	}
 	if len(candidates) == 0 {
-		return Player{}, fmt.Errorf("no alive villager to kill")
+		log.Printf("[GAME] No alive players to assign as mayor | id=%s", g.Id)
+		return
 	}
-	idx := candidates[rand.Intn(len(candidates))]
-	g.Players[idx].Alive = false
-	return g.Players[idx], nil
+	g.setMayor(candidates[rand.Intn(len(candidates))])
+}
+
+func (g *Game) killRandomAliveVillager() (Player, error) {
+	var villagers []int
+	for i, p := range g.Players {
+		if p.Alive && p.Role != Wolf {
+			villagers = append(villagers, i)
+		}
+	}
+	if len(villagers) == 0 {
+		return Player{}, fmt.Errorf("no alive villager to vote")
+	}
+
+	votes := make(map[int]int)
+	for i, p := range g.Players {
+		if !p.Alive {
+			continue
+		}
+		eligible := make([]int, 0)
+		for _, idx := range villagers {
+			if idx != i {
+				eligible = append(eligible, idx)
+			}
+		}
+		if len(eligible) == 0 {
+			continue
+		}
+		votes[eligible[rand.Intn(len(eligible))]]++
+		log.Printf("[VOTE] %s votes against %s", p.Name, g.Players[eligible[rand.Intn(len(eligible))]].Name)
+	}
+
+	maxVotes := -1
+	var tied []int
+	for idx, count := range votes {
+		if count > maxVotes {
+			maxVotes = count
+			tied = []int{idx}
+		} else if count == maxVotes {
+			tied = append(tied, idx)
+		}
+	}
+
+	var targetIdx int
+	if len(tied) == 1 {
+		targetIdx = tied[0]
+	} else {
+		targetIdx = g.mayorBreaksTie(tied)
+	}
+
+	g.Players[targetIdx].Alive = false
+	log.Printf("[VOTE] Result | eliminated=%s votes=%d", g.Players[targetIdx].Name, maxVotes)
+	return g.Players[targetIdx], nil
+}
+
+func (g *Game) mayorBreaksTie(tied []int) int {
+	for _, p := range g.Players {
+		if p.Mayor && p.Alive {
+			choice := tied[rand.Intn(len(tied))]
+			log.Printf("[VOTE] Tie broken by mayor | mayor=%s eliminates=%s", p.Name, g.Players[choice].Name)
+			return choice
+		}
+	}
+	return tied[rand.Intn(len(tied))]
 }
 
 func (g *Game) killRandomAlivePlayer() (Player, error) {
