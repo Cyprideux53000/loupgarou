@@ -162,7 +162,9 @@ func TestExecuteStepSavesState(t *testing.T) {
 
 	game, _ := svc.CreateGame([]string{"Alice", "Bob", "Charlie", "Diana"}, 1)
 
-	svc.ExecuteStep(game.Id)
+	if _, err := svc.ExecuteStep(game.Id); err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
 
 	reloaded, _ := svc.GetGame(game.Id)
 	if reloaded.CurrentStep != "DayVote" {

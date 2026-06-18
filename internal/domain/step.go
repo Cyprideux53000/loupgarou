@@ -23,21 +23,22 @@ func (g *Game) Step() (StepResult, error) {
 	var err error
 	phase := g.CurrentStep
 
-	if phase == "wolfAttack" {
+	switch phase {
+	case "wolfAttack":
 		victim, err = g.KillRandomAliveVillager()
 		if err != nil {
 			return StepResult{}, err
 		}
 		g.CurrentStep = "DayVote"
 		g.Night = false
-	} else if phase == "DayVote" {
+	case "DayVote":
 		victim, err = g.KillRandomAlivePlayer()
 		if err != nil {
 			return StepResult{}, err
 		}
 		g.CurrentStep = "wolfAttack"
 		g.Night = true
-	} else {
+	default:
 		return StepResult{}, fmt.Errorf("invalid step: %s", phase)
 	}
 
