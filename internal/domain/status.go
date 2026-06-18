@@ -1,6 +1,5 @@
-package village
+package domain
 
-// Status represents the current state of a game.
 type Status struct {
 	WolvesAlive    int    `json:"wolves_alive"`
 	VillagersAlive int    `json:"villagers_alive"`
@@ -9,8 +8,7 @@ type Status struct {
 	Winner         string `json:"winner"`
 }
 
-// GetStatus computes the current status of the game.
-func (g Game) GetStatus() Status {
+func (g *Game) GetStatus() Status {
 	wolvesAlive := 0
 	villagersAlive := 0
 

@@ -1,7 +1,7 @@
 package employe
 
 import (
-	"loupgarou/person"
+	"loupgarou/exo/person"
 	"strconv"
 )
 

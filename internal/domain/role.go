@@ -1,11 +1,10 @@
-package village
+package domain
 
 import (
 	"encoding/json"
 	"fmt"
 )
 
-// Role represents the secret role of a player.
 type Role int
 
 const (

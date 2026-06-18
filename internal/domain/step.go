@@ -1,4 +1,4 @@
-package village
+package domain
 
 import "fmt"
 
@@ -10,7 +10,7 @@ type StepResult struct {
 }
 
 type StepResponse struct {
-	Game Game       `json:"game"`
+	Game *Game      `json:"game"`
 	Step StepResult `json:"step"`
 }
 
@@ -24,14 +24,14 @@ func (g *Game) Step() (StepResult, error) {
 	phase := g.CurrentStep
 
 	if phase == "wolfAttack" {
-		victim, err = g.killRandomAliveVillager()
+		victim, err = g.KillRandomAliveVillager()
 		if err != nil {
 			return StepResult{}, err
 		}
 		g.CurrentStep = "DayVote"
 		g.Night = false
 	} else if phase == "DayVote" {
-		victim, err = g.killRandomAlivePlayer()
+		victim, err = g.KillRandomAlivePlayer()
 		if err != nil {
 			return StepResult{}, err
 		}
@@ -48,7 +48,7 @@ func (g *Game) Step() (StepResult, error) {
 	}
 
 	if victim.Mayor {
-		g.assignNewMayor()
+		g.AssignNewMayor()
 		for i := range g.Players {
 			if g.Players[i].Mayor {
 				result.NewMayor = &g.Players[i]

@@ -1,11 +1,10 @@
-package village
+package domain
 
 import (
 	"encoding/json"
 	"fmt"
 )
 
-// Trait represents a character trait of a player.
 type Trait int
 
 const (
