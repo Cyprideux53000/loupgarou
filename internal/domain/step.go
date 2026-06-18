@@ -49,7 +49,7 @@ func (g *Game) Step() (StepResult, error) {
 		for i, c := range candidates {
 			names[i] = c.Name
 		}
-		chooser := llm.New("llama3.1")
+		chooser := llm.New("llama3.2:3b")
 		chosenName, err := chooser.ChooseTarget(names, phase)
 		if err != nil {
 			return StepResult{}, fmt.Errorf("choose target: %w", err)
