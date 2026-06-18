@@ -32,11 +32,18 @@ export interface Status {
   winner: Winner
 }
 
+export interface PlayerVote {
+  voter: string
+  target: string
+}
+
 export interface StepResult {
   victim: Player
   phase: Phase
   message: string
   new_mayor?: Player
+  discussion?: string[]
+  votes?: PlayerVote[]
 }
 
 export interface StepResponse {

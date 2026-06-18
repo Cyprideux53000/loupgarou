@@ -110,7 +110,12 @@ func (h *GameHandler) HandleStep(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response, err := h.service.ExecuteStep(id)
+	var req struct {
+		Discussion []string `json:"discussion"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+
+	response, err := h.service.ExecuteStep(id, req.Discussion)
 	if err != nil {
 		log.Printf("[ERROR] POST /step - %s", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)

@@ -10,7 +10,7 @@ type GameService interface {
 	CreateGame(names []string, wolfCount int, mode string) (*domain.Game, error)
 	GetGame(id string) (*domain.Game, error)
 	GetStatus(id string) (*domain.Status, error)
-	ExecuteStep(id string) (*domain.StepResponse, error)
+	ExecuteStep(id string, discussion []string) (*domain.StepResponse, error)
 }
 
 type gameService struct {
@@ -52,13 +52,13 @@ func (s *gameService) GetStatus(id string) (*domain.Status, error) {
 	return &status, nil
 }
 
-func (s *gameService) ExecuteStep(id string) (*domain.StepResponse, error) {
+func (s *gameService) ExecuteStep(id string, discussion []string) (*domain.StepResponse, error) {
 	game, err := s.repo.Load(id)
 	if err != nil {
 		return nil, err
 	}
 
-	stepResult, err := game.Step()
+	stepResult, err := game.Step(discussion)
 	if err != nil {
 		return nil, err
 	}

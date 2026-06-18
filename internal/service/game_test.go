@@ -132,7 +132,7 @@ func TestExecuteStep(t *testing.T) {
 
 	game, _ := svc.CreateGame([]string{"Alice", "Bob", "Charlie", "Diana"}, 1, "random")
 
-	response, err := svc.ExecuteStep(game.Id)
+	response, err := svc.ExecuteStep(game.Id, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
@@ -150,7 +150,7 @@ func TestExecuteStep(t *testing.T) {
 func TestExecuteStepNotFound(t *testing.T) {
 	svc := NewGameService(newMockRepo())
 
-	_, err := svc.ExecuteStep("nonexistent")
+	_, err := svc.ExecuteStep("nonexistent", nil)
 	if err == nil {
 		t.Error("expected error for nonexistent game")
 	}
@@ -162,7 +162,7 @@ func TestExecuteStepSavesState(t *testing.T) {
 
 	game, _ := svc.CreateGame([]string{"Alice", "Bob", "Charlie", "Diana"}, 1, "random")
 
-	if _, err := svc.ExecuteStep(game.Id); err != nil {
+	if _, err := svc.ExecuteStep(game.Id, nil); err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
 

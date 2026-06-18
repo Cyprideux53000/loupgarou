@@ -4,24 +4,27 @@ import type { Game, GameMode, Status } from '@/types/game'
 
 export interface LogEntry {
   message: string
-  type: 'night' | 'day' | 'end'
+  type: 'night' | 'day' | 'end' | 'discussion' | 'vote'
 }
 
 const game = ref<Game | null>(null)
 const status = ref<Status | null>(null)
 const log = ref<LogEntry[]>([])
+const discussion = ref<string[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
 
 export function useGame() {
   const isGameOver = computed(() => status.value?.is_game_over ?? false)
   const gameId = computed(() => game.value?.id ?? null)
+  const isDayPhase = computed(() => game.value != null && !game.value.night && !isGameOver.value)
 
   async function create(names: string[], wolfCount: number, mode: GameMode) {
     loading.value = true
     error.value = null
     try {
       log.value = []
+      discussion.value = []
       game.value = await api.createGame({ names, wolf_count: wolfCount, mode })
       status.value = await api.getStatus(game.value.id)
       log.value.unshift({ message: 'Partie creee !', type: 'day' })
@@ -38,6 +41,7 @@ export function useGame() {
     error.value = null
     try {
       log.value = []
+      discussion.value = []
       game.value = await api.getGame(id)
       status.value = await api.getStatus(id)
       log.value.unshift({ message: 'Partie chargee.', type: 'day' })
@@ -49,16 +53,35 @@ export function useGame() {
     }
   }
 
+  function addDiscussionMessage(message: string) {
+    discussion.value.push(message)
+    log.value.unshift({ message, type: 'discussion' })
+  }
+
   async function step() {
     if (!game.value) return
     loading.value = true
     error.value = null
     try {
-      const response = await api.executeStep(game.value.id)
+      const response = await api.executeStep(game.value.id, discussion.value.length > 0 ? discussion.value : undefined)
       game.value = response.game
       status.value = await api.getStatus(game.value.id)
+      discussion.value = []
 
       const logType: 'night' | 'day' = response.step.phase === 'wolfAttack' ? 'night' : 'day'
+
+      if (response.step.discussion && response.step.discussion.length > 0) {
+        for (const line of [...response.step.discussion].reverse()) {
+          log.value.unshift({ message: line, type: 'discussion' })
+        }
+      }
+
+      if (response.step.votes && response.step.votes.length > 0) {
+        for (const vote of [...response.step.votes].reverse()) {
+          log.value.unshift({ message: `${vote.voter} vote contre ${vote.target}`, type: 'vote' })
+        }
+      }
+
       log.value.unshift({ message: response.step.message, type: logType })
 
       if (response.step.new_mayor) {
@@ -85,5 +108,5 @@ export function useGame() {
     error.value = null
   }
 
-  return { game, status, log, loading, error, isGameOver, gameId, create, load, step, clearError }
+  return { game, status, log, discussion, loading, error, isGameOver, isDayPhase, gameId, create, load, step, addDiscussionMessage, clearError }
 }

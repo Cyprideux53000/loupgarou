@@ -51,11 +51,11 @@ func (m *mockService) GetStatus(id string) (*domain.Status, error) {
 	return &status, nil
 }
 
-func (m *mockService) ExecuteStep(id string) (*domain.StepResponse, error) {
+func (m *mockService) ExecuteStep(id string, discussion []string) (*domain.StepResponse, error) {
 	if id != m.game.Id {
 		return nil, fmt.Errorf("game not found: %s", id)
 	}
-	result, err := m.game.Step()
+	result, err := m.game.Step(nil)
 	if err != nil {
 		return nil, err
 	}

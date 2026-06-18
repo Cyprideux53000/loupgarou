@@ -14,9 +14,13 @@ defineProps<{ entries: LogEntry[] }>()
         'log-night': entry.type === 'night',
         'log-day': entry.type === 'day',
         'log-end': entry.type === 'end',
+        'log-discussion': entry.type === 'discussion',
+        'log-vote': entry.type === 'vote',
       }"
     >
-      &gt; {{ entry.message }}
+      <template v-if="entry.type === 'discussion'">&#128172; {{ entry.message }}</template>
+      <template v-else-if="entry.type === 'vote'">&#9745; {{ entry.message }}</template>
+      <template v-else>&gt; {{ entry.message }}</template>
     </div>
   </div>
 </template>
@@ -26,7 +30,7 @@ defineProps<{ entries: LogEntry[] }>()
   background: #111;
   border-radius: 8px;
   padding: 14px;
-  max-height: 200px;
+  max-height: 400px;
   overflow-y: auto;
   font-family: 'Courier New', monospace;
   font-size: 0.85rem;
@@ -54,5 +58,16 @@ defineProps<{ entries: LogEntry[] }>()
 .log-end {
   color: var(--accent);
   font-weight: 700;
+}
+
+.log-discussion {
+  color: #74b9ff;
+  font-style: italic;
+  padding-left: 8px;
+}
+
+.log-vote {
+  color: #55efc4;
+  padding-left: 8px;
 }
 </style>

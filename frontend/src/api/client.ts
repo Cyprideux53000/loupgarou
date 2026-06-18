@@ -25,8 +25,10 @@ export function getStatus(id: string): Promise<Status> {
   return request<Status>(`/status?id=${encodeURIComponent(id)}`)
 }
 
-export function executeStep(id: string): Promise<StepResponse> {
+export function executeStep(id: string, discussion?: string[]): Promise<StepResponse> {
   return request<StepResponse>(`/step?id=${encodeURIComponent(id)}`, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ discussion: discussion ?? [] }),
   })
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useGame } from '@/composables/useGame'
 import PhaseBar from '@/components/PhaseBar.vue'
@@ -9,7 +9,17 @@ import GameLog from '@/components/GameLog.vue'
 
 const route = useRoute()
 const router = useRouter()
-const { game, status, log, loading, isGameOver, step, load } = useGame()
+const { game, status, log, loading, isGameOver, isDayPhase, step, load, addDiscussionMessage } = useGame()
+
+const chatInput = ref('')
+const selectedSpeaker = ref('')
+
+function sendMessage() {
+  const msg = chatInput.value.trim()
+  if (!msg || !selectedSpeaker.value) return
+  addDiscussionMessage(`${selectedSpeaker.value}: ${msg}`)
+  chatInput.value = ''
+}
 
 onMounted(async () => {
   const id = route.params.id as string
@@ -35,6 +45,29 @@ onMounted(async () => {
 
     <div class="players-grid">
       <PlayerCard v-for="player in game.players" :key="player.id" :player="player" />
+    </div>
+
+    <div v-if="isDayPhase && game.mode === 'llm'" class="chat-box">
+      <p class="chat-label">Discussion du village</p>
+      <form class="chat-input-row" @submit.prevent="sendMessage">
+        <select v-model="selectedSpeaker" class="chat-speaker">
+          <option value="" disabled>Joueur</option>
+          <option
+            v-for="p in game.players.filter(p => p.alive)"
+            :key="p.id"
+            :value="p.name"
+          >
+            {{ p.name }}
+          </option>
+        </select>
+        <input
+          v-model="chatInput"
+          type="text"
+          placeholder="Ecrivez un message..."
+          class="chat-input"
+        >
+        <button type="submit" class="chat-send" :disabled="!selectedSpeaker || !chatInput.trim()" title="Envoyer">&#10004;</button>
+      </form>
     </div>
 
     <button class="btn-step" :disabled="isGameOver || loading" @click="step">
@@ -82,5 +115,58 @@ onMounted(async () => {
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 12px;
   margin-bottom: 20px;
+}
+
+.chat-box {
+  background: #111;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+.chat-label {
+  font-size: 0.85rem;
+  color: #74b9ff;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.chat-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.chat-speaker {
+  width: 130px;
+  flex-shrink: 0;
+  margin-bottom: 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.chat-input {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.chat-send {
+  background: var(--green);
+  color: var(--bg);
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  font-weight: 700;
+  transition: opacity 0.2s;
+}
+
+.chat-send:hover {
+  opacity: 0.85;
 }
 </style>

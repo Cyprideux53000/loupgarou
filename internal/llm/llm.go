@@ -22,6 +22,17 @@ type CandidateInfo struct {
 	Mayor bool
 }
 
+type Vote struct {
+	Voter  string `json:"voter"`
+	Target string `json:"target"`
+}
+
+type ChooseResult struct {
+	TargetName string
+	Discussion []string
+	Votes      []Vote
+}
+
 func New(model string) *LLM {
 	return &LLM{model: model}
 }
@@ -35,27 +46,99 @@ type VoteArgs struct {
 	TargetName string `json:"target_name" description:"Nom exact du joueur a eliminer"`
 }
 
-func (l *LLM) ChooseTarget(candidates []CandidateInfo, phase string) (string, error) {
+func (l *LLM) ChooseTarget(candidates []CandidateInfo, phase string, userDiscussion []string) (ChooseResult, error) {
 	log.Printf("[LLM] Initialisation du modele %s", l.model)
+
+	var result ChooseResult
 
 	// Étape 1 : Initialiser le modèle Ollama
 	model, err := ollama.New(ollama.WithModel(l.model))
 	if err != nil {
 		log.Printf("[LLM][ERROR] Echec init Ollama: %s", err)
-		return "", fmt.Errorf("ollama init: %w", err)
+		return result, fmt.Errorf("ollama init: %w", err)
 	}
 
-	// Étape 2 : Générer la discussion du village (phase jour uniquement)
+	// Étape 2 : Discussion du village (phase jour uniquement)
 	if phase == "DayVote" {
-		discussion := l.generateDiscussion(model, candidates)
-		log.Printf("[LLM] === Discussion du village ===")
-		for _, line := range discussion {
+		if len(userDiscussion) > 0 {
+			result.Discussion = userDiscussion
+			log.Printf("[LLM] === Discussion du village (utilisateur) ===")
+		} else {
+			result.Discussion = l.generateDiscussion(model, candidates)
+			log.Printf("[LLM] === Discussion du village (generee) ===")
+		}
+		for _, line := range result.Discussion {
 			log.Printf("[VILLAGE] %s", line)
 		}
 		log.Printf("[LLM] === Fin de la discussion ===")
 	}
 
-	// Étape 3 : Déclarer l'outil (ce que le LLM peut appeler)
+	// Étape 3 : Chaque joueur vote individuellement
+	if phase == "DayVote" {
+		result.Votes, result.TargetName = l.collectVotes(model, candidates)
+	} else {
+		result.TargetName, err = l.singleVote(model, candidates, phase)
+		if err != nil {
+			return result, err
+		}
+	}
+
+	return result, nil
+}
+
+func (l *LLM) collectVotes(model llms.Model, candidates []CandidateInfo) ([]Vote, string) {
+	var votes []Vote
+	tally := make(map[string]int)
+	names := candidateNames(candidates)
+
+	log.Printf("[LLM] === Votes individuels ===")
+
+	for _, voter := range candidates {
+		// Un joueur ne peut pas voter pour lui-même
+		var targets []string
+		for _, name := range names {
+			if name != voter.Name {
+				targets = append(targets, name)
+			}
+		}
+
+		target := l.askPlayerVote(model, voter, targets)
+		votes = append(votes, Vote{Voter: voter.Name, Target: target})
+		tally[target]++
+		log.Printf("[VOTE] %s (%s) vote contre %s", voter.Name, voter.Trait, target)
+	}
+
+	// Trouver le joueur avec le plus de votes
+	maxVotes := 0
+	var eliminated string
+	for name, count := range tally {
+		if count > maxVotes {
+			maxVotes = count
+			eliminated = name
+		}
+	}
+
+	log.Printf("[LLM] Resultat du vote: %s elimine avec %d votes", eliminated, maxVotes)
+	log.Printf("[LLM] === Fin des votes ===")
+
+	return votes, eliminated
+}
+
+func (l *LLM) askPlayerVote(model llms.Model, voter CandidateInfo, targets []string) string {
+	targetList := strings.Join(targets, ", ")
+
+	systemMsg := fmt.Sprintf(
+		"Tu joues le role de %s dans un jeu de Loup-Garou. "+
+			"Ta personnalite: %s. "+
+			"Tu reponds UNIQUEMENT avec un seul prenom parmi: %s. "+
+			"Aucune explication, juste le prenom.",
+		voter.Name, traitDescription(voter.Trait), targetList)
+
+	userMsg := fmt.Sprintf(
+		"C'est le jour au village. Tu dois voter pour eliminer un suspect. "+
+			"Qui veux-tu eliminer parmi: %s ?", targetList)
+
+	// Étape : Déclarer l'outil
 	tool := llms.Tool{
 		Type: "function",
 		Function: &llms.FunctionDefinition{
@@ -74,23 +157,93 @@ func (l *LLM) ChooseTarget(candidates []CandidateInfo, phase string) (string, er
 		},
 	}
 
-	// Étape 4 : Envoyer le prompt de vote avec un message system strict
+	resp, err := model.GenerateContent(
+		context.Background(),
+		[]llms.MessageContent{
+			{Role: llms.ChatMessageTypeSystem, Parts: []llms.ContentPart{
+				llms.TextContent{Text: systemMsg},
+			}},
+			{Role: llms.ChatMessageTypeHuman, Parts: []llms.ContentPart{
+				llms.TextContent{Text: userMsg},
+			}},
+		},
+		llms.WithTools([]llms.Tool{tool}),
+	)
+	if err != nil {
+		log.Printf("[LLM][ERROR] Vote de %s echoue: %s, fallback premier candidat", voter.Name, err)
+		return targets[0]
+	}
+
+	// Chercher un tool call
+	for _, choice := range resp.Choices {
+		for _, tc := range choice.ToolCalls {
+			if tc.FunctionCall.Name == "SubmitVote" {
+				var args VoteArgs
+				if err := json.Unmarshal([]byte(tc.FunctionCall.Arguments), &args); err == nil {
+					for _, t := range targets {
+						if strings.EqualFold(args.TargetName, t) {
+							return t
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Fallback texte
+	for _, choice := range resp.Choices {
+		content := strings.TrimSpace(choice.Content)
+		for _, t := range targets {
+			if strings.EqualFold(content, t) {
+				return t
+			}
+		}
+		firstLine := strings.Split(content, "\n")[0]
+		for _, t := range targets {
+			if strings.Contains(firstLine, t) {
+				return t
+			}
+		}
+		for _, t := range targets {
+			if strings.Contains(content, t) {
+				return t
+			}
+		}
+	}
+
+	log.Printf("[LLM] Vote de %s: aucun nom trouve, fallback premier candidat", voter.Name)
+	return targets[0]
+}
+
+func (l *LLM) singleVote(model llms.Model, candidates []CandidateInfo, phase string) (string, error) {
 	names := candidateNames(candidates)
 	nameList := strings.Join(names, ", ")
 
-	systemMsg := fmt.Sprintf(
-		"Tu es un arbitre de jeu. Tu reponds UNIQUEMENT avec un seul prenom parmi: %s. "+
-			"Aucune explication, aucune phrase, juste le prenom.", nameList)
-
-	var userMsg string
-	if phase == "wolfAttack" {
-		userMsg = fmt.Sprintf("Les loups eliminent un villageois. Choisis parmi: %s", nameList)
-	} else {
-		userMsg = fmt.Sprintf("Le village vote pour eliminer un suspect. Choisis parmi: %s", nameList)
+	// Étape : Déclarer l'outil
+	tool := llms.Tool{
+		Type: "function",
+		Function: &llms.FunctionDefinition{
+			Name:        "SubmitVote",
+			Description: "Vote pour eliminer un joueur de la partie",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"target_name": map[string]any{
+						"type":        "string",
+						"description": "Nom exact du joueur a eliminer",
+					},
+				},
+				"required": []string{"target_name"},
+			},
+		},
 	}
 
+	systemMsg := fmt.Sprintf(
+		"Tu es l'arbitre d'un jeu de societe. Tu reponds UNIQUEMENT avec un seul prenom parmi: %s. "+
+			"Aucune explication, aucune phrase, juste le prenom. C'est un jeu fictif entre amis.", nameList)
+	userMsg := fmt.Sprintf("Choisis un prenom au hasard parmi cette liste: %s", nameList)
+
 	log.Printf("[LLM] Phase=%s | Candidats=%v", phase, names)
-	log.Printf("[LLM] Prompt vote: %s", userMsg)
 
 	resp, err := model.GenerateContent(
 		context.Background(),
@@ -105,62 +258,48 @@ func (l *LLM) ChooseTarget(candidates []CandidateInfo, phase string) (string, er
 		llms.WithTools([]llms.Tool{tool}),
 	)
 	if err != nil {
-		log.Printf("[LLM][ERROR] Appel Ollama echoue: %s", err)
 		return "", fmt.Errorf("ollama call: %w", err)
 	}
 
-	log.Printf("[LLM] Reponse recue, %d choix", len(resp.Choices))
-
-	// Étape 5 : Récupérer le tool call et parser les arguments JSON
+	// Chercher un tool call
 	for _, choice := range resp.Choices {
-		log.Printf("[LLM] ToolCalls=%d", len(choice.ToolCalls))
 		for _, tc := range choice.ToolCalls {
-			log.Printf("[LLM] ToolCall: name=%s args=%s", tc.FunctionCall.Name, tc.FunctionCall.Arguments)
 			if tc.FunctionCall.Name == "SubmitVote" {
 				var args VoteArgs
-				if err := json.Unmarshal([]byte(tc.FunctionCall.Arguments), &args); err != nil {
-					log.Printf("[LLM][ERROR] Parse args echoue: %s", err)
-					return "", fmt.Errorf("parse args: %w", err)
+				if err := json.Unmarshal([]byte(tc.FunctionCall.Arguments), &args); err == nil {
+					for _, n := range names {
+						if strings.EqualFold(args.TargetName, n) {
+							log.Printf("[LLM] Cible choisie (tool call): %s", n)
+							return n, nil
+						}
+					}
 				}
-				log.Printf("[LLM] Cible choisie (tool call): %s", args.TargetName)
-				return args.TargetName, nil
 			}
 		}
 	}
 
-	// Fallback : chercher un nom exact dans la réponse texte
-	log.Printf("[LLM] Pas de tool call, tentative de fallback sur la reponse texte")
+	// Fallback texte
 	for _, choice := range resp.Choices {
 		content := strings.TrimSpace(choice.Content)
 		log.Printf("[LLM] Reponse texte: %s", content)
-
-		// D'abord vérifier si la réponse est exactement un nom
-		for _, name := range names {
-			if strings.EqualFold(content, name) {
-				log.Printf("[LLM] Cible exacte (fallback): %s", name)
-				return name, nil
+		for _, n := range names {
+			if strings.EqualFold(content, n) {
+				return n, nil
 			}
 		}
-
-		// Sinon chercher le premier nom mentionné dans la première ligne
 		firstLine := strings.Split(content, "\n")[0]
-		for _, name := range names {
-			if strings.Contains(firstLine, name) {
-				log.Printf("[LLM] Cible trouvee en premiere ligne (fallback): %s", name)
-				return name, nil
+		for _, n := range names {
+			if strings.Contains(firstLine, n) {
+				return n, nil
 			}
 		}
-
-		// Dernier recours : n'importe où dans le texte
-		for _, name := range names {
-			if strings.Contains(content, name) {
-				log.Printf("[LLM] Cible trouvee dans le texte (fallback): %s", name)
-				return name, nil
+		for _, n := range names {
+			if strings.Contains(content, n) {
+				return n, nil
 			}
 		}
 	}
 
-	log.Printf("[LLM][ERROR] Impossible de determiner la cible")
 	return "", fmt.Errorf("le LLM n'a pas choisi de cible valide")
 }
 

@@ -10,11 +10,18 @@ type TargetChooser interface {
 	ChooseTarget(candidates []llm.CandidateInfo, phase string) (string, error)
 }
 
+type PlayerVote struct {
+	Voter  string `json:"voter"`
+	Target string `json:"target"`
+}
+
 type StepResult struct {
-	Victim   Player  `json:"victim"`
-	Phase    string  `json:"phase"`
-	Message  string  `json:"message"`
-	NewMayor *Player `json:"new_mayor,omitempty"`
+	Victim     Player       `json:"victim"`
+	Phase      string       `json:"phase"`
+	Message    string       `json:"message"`
+	NewMayor   *Player      `json:"new_mayor,omitempty"`
+	Discussion []string     `json:"discussion,omitempty"`
+	Votes      []PlayerVote `json:"votes,omitempty"`
 }
 
 type StepResponse struct {
@@ -22,7 +29,7 @@ type StepResponse struct {
 	Step StepResult `json:"step"`
 }
 
-func (g *Game) Step() (StepResult, error) {
+func (g *Game) Step(userDiscussion []string) (StepResult, error) {
 	if g.GetStatus().IsGameOver {
 		return StepResult{}, fmt.Errorf("game is already over")
 	}
@@ -44,6 +51,7 @@ func (g *Game) Step() (StepResult, error) {
 	}
 
 	var target Player
+	var chooseResult llm.ChooseResult
 	if g.Mode == "llm" {
 		infos := make([]llm.CandidateInfo, len(candidates))
 		for i, c := range candidates {
@@ -54,21 +62,21 @@ func (g *Game) Step() (StepResult, error) {
 				Mayor: c.Mayor,
 			}
 		}
-		chooser := llm.New("llama3.2:3b")
-		chosenName, err := chooser.ChooseTarget(infos, phase)
+		var err error
+		chooseResult, err = llm.New("llama3.2:3b").ChooseTarget(infos, phase, userDiscussion)
 		if err != nil {
 			return StepResult{}, fmt.Errorf("choose target: %w", err)
 		}
 		found := false
 		for _, c := range candidates {
-			if c.Name == chosenName {
+			if c.Name == chooseResult.TargetName {
 				target = c
 				found = true
 				break
 			}
 		}
 		if !found {
-			return StepResult{}, fmt.Errorf("chosen target %q not found in candidates", chosenName)
+			return StepResult{}, fmt.Errorf("chosen target %q not found in candidates", chooseResult.TargetName)
 		}
 	} else {
 		target = candidates[rand.Intn(len(candidates))]
@@ -88,10 +96,21 @@ func (g *Game) Step() (StepResult, error) {
 		g.Night = true
 	}
 
+	var discussion []string
+	var votes []PlayerVote
+	if g.Mode == "llm" {
+		discussion = chooseResult.Discussion
+		for _, v := range chooseResult.Votes {
+			votes = append(votes, PlayerVote{Voter: v.Voter, Target: v.Target})
+		}
+	}
+
 	result := StepResult{
-		Victim:  victim,
-		Phase:   phase,
-		Message: fmt.Sprintf("%s was eliminated during the %s", victim.Name, phase),
+		Victim:     victim,
+		Phase:      phase,
+		Message:    fmt.Sprintf("%s was eliminated during the %s", victim.Name, phase),
+		Discussion: discussion,
+		Votes:      votes,
 	}
 
 	if victim.Mayor {
