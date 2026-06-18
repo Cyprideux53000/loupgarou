@@ -7,7 +7,7 @@ import (
 )
 
 type TargetChooser interface {
-	ChooseTarget(candidateNames []string, phase string) (string, error)
+	ChooseTarget(candidates []llm.CandidateInfo, phase string) (string, error)
 }
 
 type StepResult struct {
@@ -45,12 +45,17 @@ func (g *Game) Step() (StepResult, error) {
 
 	var target Player
 	if g.Mode == "llm" {
-		names := make([]string, len(candidates))
+		infos := make([]llm.CandidateInfo, len(candidates))
 		for i, c := range candidates {
-			names[i] = c.Name
+			infos[i] = llm.CandidateInfo{
+				Name:  c.Name,
+				Trait: c.Trait.String(),
+				Role:  c.Role.String(),
+				Mayor: c.Mayor,
+			}
 		}
 		chooser := llm.New("llama3.2:3b")
-		chosenName, err := chooser.ChooseTarget(names, phase)
+		chosenName, err := chooser.ChooseTarget(infos, phase)
 		if err != nil {
 			return StepResult{}, fmt.Errorf("choose target: %w", err)
 		}

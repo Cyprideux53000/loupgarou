@@ -6,7 +6,6 @@ func TestStepWolfAttack(t *testing.T) {
 	game := newTestGame()
 
 	result, err := game.Step()
-
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
@@ -46,7 +45,6 @@ func TestStepDayVote(t *testing.T) {
 	}
 
 	result, err := game.Step()
-
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
@@ -78,7 +76,6 @@ func TestStepGameAlreadyOver(t *testing.T) {
 	}
 
 	_, err := game.Step()
-
 	if err == nil {
 		t.Error("expected error when game is already over")
 	}
@@ -97,7 +94,6 @@ func TestStepInvalidPhase(t *testing.T) {
 	}
 
 	_, err := game.Step()
-
 	if err == nil {
 		t.Error("expected error for invalid step")
 	}
