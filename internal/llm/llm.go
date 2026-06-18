@@ -75,7 +75,7 @@ func (l *LLM) ChooseTarget(candidates []CandidateInfo, phase string, userDiscuss
 
 	// Étape 3 : Chaque joueur vote individuellement
 	if phase == "DayVote" {
-		result.Votes, result.TargetName = l.collectVotes(model, candidates)
+		result.Votes, result.TargetName = l.collectVotes(model, candidates, result.Discussion)
 	} else {
 		result.TargetName, err = l.singleVote(model, candidates, phase)
 		if err != nil {
@@ -86,7 +86,7 @@ func (l *LLM) ChooseTarget(candidates []CandidateInfo, phase string, userDiscuss
 	return result, nil
 }
 
-func (l *LLM) collectVotes(model llms.Model, candidates []CandidateInfo) ([]Vote, string) {
+func (l *LLM) collectVotes(model llms.Model, candidates []CandidateInfo, discussion []string) ([]Vote, string) {
 	var votes []Vote
 	tally := make(map[string]int)
 	names := candidateNames(candidates)
@@ -102,7 +102,7 @@ func (l *LLM) collectVotes(model llms.Model, candidates []CandidateInfo) ([]Vote
 			}
 		}
 
-		target := l.askPlayerVote(model, voter, targets)
+		target := l.askPlayerVote(model, voter, targets, discussion)
 		votes = append(votes, Vote{Voter: voter.Name, Target: target})
 		tally[target]++
 		log.Printf("[VOTE] %s (%s) vote contre %s", voter.Name, voter.Trait, target)
@@ -124,7 +124,7 @@ func (l *LLM) collectVotes(model llms.Model, candidates []CandidateInfo) ([]Vote
 	return votes, eliminated
 }
 
-func (l *LLM) askPlayerVote(model llms.Model, voter CandidateInfo, targets []string) string {
+func (l *LLM) askPlayerVote(model llms.Model, voter CandidateInfo, targets []string, discussion []string) string {
 	targetList := strings.Join(targets, ", ")
 
 	systemMsg := fmt.Sprintf(
@@ -134,9 +134,20 @@ func (l *LLM) askPlayerVote(model llms.Model, voter CandidateInfo, targets []str
 			"Aucune explication, juste le prenom.",
 		voter.Name, traitDescription(voter.Trait), targetList)
 
-	userMsg := fmt.Sprintf(
-		"C'est le jour au village. Tu dois voter pour eliminer un suspect. "+
-			"Qui veux-tu eliminer parmi: %s ?", targetList)
+	var userMsg string
+	if len(discussion) > 0 {
+		var sb strings.Builder
+		sb.WriteString("Pendant la discussion du village, les joueurs ont dit :\n")
+		for _, line := range discussion {
+			sb.WriteString("- " + line + "\n")
+		}
+		sb.WriteString(fmt.Sprintf(
+			"\nD'apres cette discussion, le joueur le plus suspect est probablement accuse dans les messages ci-dessus. "+
+				"Vote pour le joueur accuse. Choisis parmi: %s", targetList))
+		userMsg = sb.String()
+	} else {
+		userMsg = fmt.Sprintf("Choisis un joueur a eliminer parmi: %s", targetList)
+	}
 
 	// Étape : Déclarer l'outil
 	tool := llms.Tool{
