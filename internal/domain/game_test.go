@@ -6,7 +6,7 @@ import (
 
 func TestNewGame(t *testing.T) {
 	names := []string{"Alice", "Bob", "Charlie", "Diana"}
-	game := NewGame(names, 1)
+	game := NewGame(names, 1, "random")
 
 	if game.Id == "" {
 		t.Error("game should have an id")
@@ -50,7 +50,7 @@ func TestNewGame(t *testing.T) {
 }
 
 func TestNewGameMultipleWolves(t *testing.T) {
-	game := NewGame([]string{"A", "B", "C", "D", "E"}, 2)
+	game := NewGame([]string{"A", "B", "C", "D", "E"}, 2, "random")
 
 	wolfCount := 0
 	for _, p := range game.Players {
@@ -65,7 +65,7 @@ func TestNewGameMultipleWolves(t *testing.T) {
 
 func TestNewGamePlayerNames(t *testing.T) {
 	names := []string{"Alice", "Bob"}
-	game := NewGame(names, 1)
+	game := NewGame(names, 1, "random")
 
 	found := map[string]bool{}
 	for _, p := range game.Players {

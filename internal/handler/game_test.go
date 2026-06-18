@@ -29,7 +29,7 @@ func newMockService() *mockService {
 	}
 }
 
-func (m *mockService) CreateGame(names []string, wolfCount int) (*domain.Game, error) {
+func (m *mockService) CreateGame(names []string, wolfCount int, mode string) (*domain.Game, error) {
 	if len(names) == 0 {
 		return nil, fmt.Errorf("at least one player is required")
 	}
@@ -55,7 +55,7 @@ func (m *mockService) ExecuteStep(id string) (*domain.StepResponse, error) {
 	if id != m.game.Id {
 		return nil, fmt.Errorf("game not found: %s", id)
 	}
-	result, err := m.game.Step()
+	result, err := m.game.Step(nil)
 	if err != nil {
 		return nil, err
 	}

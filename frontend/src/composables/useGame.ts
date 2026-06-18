@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue'
 import * as api from '@/api/client'
-import type { Game, Status } from '@/types/game'
+import type { Game, GameMode, Status } from '@/types/game'
 
 export interface LogEntry {
   message: string
@@ -17,12 +17,12 @@ export function useGame() {
   const isGameOver = computed(() => status.value?.is_game_over ?? false)
   const gameId = computed(() => game.value?.id ?? null)
 
-  async function create(names: string[], wolfCount: number) {
+  async function create(names: string[], wolfCount: number, mode: GameMode) {
     loading.value = true
     error.value = null
     try {
       log.value = []
-      game.value = await api.createGame({ names, wolf_count: wolfCount })
+      game.value = await api.createGame({ names, wolf_count: wolfCount, mode })
       status.value = await api.getStatus(game.value.id)
       log.value.unshift({ message: 'Partie creee !', type: 'day' })
     } catch (e: unknown) {

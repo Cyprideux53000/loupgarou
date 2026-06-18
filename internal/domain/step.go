@@ -2,8 +2,13 @@ package domain
 
 import (
 	"fmt"
+	"loupgarou/internal/llm"
 	"math/rand"
 )
+
+type TargetChooser interface {
+	ChooseTarget(candidateNames []string, phase string) (string, error)
+}
 
 type StepResult struct {
 	Victim   Player  `json:"victim"`
@@ -38,8 +43,32 @@ func (g *Game) Step() (StepResult, error) {
 		return StepResult{}, fmt.Errorf("no eligible target for %s", phase)
 	}
 
-	// Random selection — à remplacer par un LLM plus tard
-	target := candidates[rand.Intn(len(candidates))]
+	var target Player
+	if g.Mode == "llm" {
+		names := make([]string, len(candidates))
+		for i, c := range candidates {
+			names[i] = c.Name
+		}
+		chooser := llm.New("llama3.1")
+		chosenName, err := chooser.ChooseTarget(names, phase)
+		if err != nil {
+			return StepResult{}, fmt.Errorf("choose target: %w", err)
+		}
+		found := false
+		for _, c := range candidates {
+			if c.Name == chosenName {
+				target = c
+				found = true
+				break
+			}
+		}
+		if !found {
+			return StepResult{}, fmt.Errorf("chosen target %q not found in candidates", chosenName)
+		}
+	} else {
+		target = candidates[rand.Intn(len(candidates))]
+	}
+
 	victim, err := g.KillPlayer(target.Id)
 	if err != nil {
 		return StepResult{}, err

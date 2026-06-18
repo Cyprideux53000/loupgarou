@@ -30,7 +30,7 @@ func (m *mockRepo) Load(id string) (*domain.Game, error) {
 func TestCreateGame(t *testing.T) {
 	svc := NewGameService(newMockRepo())
 
-	game, err := svc.CreateGame([]string{"Alice", "Bob", "Charlie"}, 1)
+	game, err := svc.CreateGame([]string{"Alice", "Bob", "Charlie"}, 1, "random")
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
@@ -48,7 +48,7 @@ func TestCreateGame(t *testing.T) {
 func TestCreateGameNoPlayers(t *testing.T) {
 	svc := NewGameService(newMockRepo())
 
-	_, err := svc.CreateGame([]string{}, 1)
+	_, err := svc.CreateGame([]string{}, 1, "random")
 	if err == nil {
 		t.Error("expected error with no players")
 	}
@@ -57,7 +57,7 @@ func TestCreateGameNoPlayers(t *testing.T) {
 func TestCreateGameZeroWolves(t *testing.T) {
 	svc := NewGameService(newMockRepo())
 
-	_, err := svc.CreateGame([]string{"Alice", "Bob"}, 0)
+	_, err := svc.CreateGame([]string{"Alice", "Bob"}, 0, "random")
 	if err == nil {
 		t.Error("expected error with zero wolves")
 	}
@@ -66,7 +66,7 @@ func TestCreateGameZeroWolves(t *testing.T) {
 func TestCreateGameTooManyWolves(t *testing.T) {
 	svc := NewGameService(newMockRepo())
 
-	_, err := svc.CreateGame([]string{"Alice", "Bob"}, 2)
+	_, err := svc.CreateGame([]string{"Alice", "Bob"}, 2, "random")
 	if err == nil {
 		t.Error("expected error when wolf count >= player count")
 	}
@@ -76,7 +76,7 @@ func TestGetGame(t *testing.T) {
 	repo := newMockRepo()
 	svc := NewGameService(repo)
 
-	created, _ := svc.CreateGame([]string{"Alice", "Bob", "Charlie"}, 1)
+	created, _ := svc.CreateGame([]string{"Alice", "Bob", "Charlie"}, 1, "random")
 
 	loaded, err := svc.GetGame(created.Id)
 	if err != nil {
@@ -100,7 +100,7 @@ func TestGetStatus(t *testing.T) {
 	repo := newMockRepo()
 	svc := NewGameService(repo)
 
-	game, _ := svc.CreateGame([]string{"Alice", "Bob", "Charlie"}, 1)
+	game, _ := svc.CreateGame([]string{"Alice", "Bob", "Charlie"}, 1, "random")
 
 	status, err := svc.GetStatus(game.Id)
 	if err != nil {
@@ -130,7 +130,7 @@ func TestExecuteStep(t *testing.T) {
 	repo := newMockRepo()
 	svc := NewGameService(repo)
 
-	game, _ := svc.CreateGame([]string{"Alice", "Bob", "Charlie", "Diana"}, 1)
+	game, _ := svc.CreateGame([]string{"Alice", "Bob", "Charlie", "Diana"}, 1, "random")
 
 	response, err := svc.ExecuteStep(game.Id)
 	if err != nil {
@@ -160,7 +160,7 @@ func TestExecuteStepSavesState(t *testing.T) {
 	repo := newMockRepo()
 	svc := NewGameService(repo)
 
-	game, _ := svc.CreateGame([]string{"Alice", "Bob", "Charlie", "Diana"}, 1)
+	game, _ := svc.CreateGame([]string{"Alice", "Bob", "Charlie", "Diana"}, 1, "random")
 
 	if _, err := svc.ExecuteStep(game.Id); err != nil {
 		t.Fatalf("unexpected error: %s", err)

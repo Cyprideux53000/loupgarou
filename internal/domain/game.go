@@ -13,18 +13,19 @@ type Game struct {
 	WolfNumber  int      `json:"wolf_number"`
 	Night       bool     `json:"night"`
 	CurrentStep string   `json:"current_step"`
+	Mode        string   `json:"mode"`
 }
 
 type Player struct {
 	Id    string `json:"id"`
 	Name  string `json:"name"`
 	Role  Role   `json:"role"`
-	Trait Trait   `json:"trait"`
+	Trait Trait  `json:"trait"`
 	Alive bool   `json:"alive"`
 	Mayor bool   `json:"mayor"`
 }
 
-func NewGame(names []string, wolfCount int) Game {
+func NewGame(names []string, wolfCount int, mode string) Game {
 	roles := make([]Role, len(names))
 	for i := 0; i < wolfCount && i < len(roles); i++ {
 		roles[i] = Wolf
@@ -53,6 +54,7 @@ func NewGame(names []string, wolfCount int) Game {
 		WolfNumber:  wolfCount,
 		Night:       true,
 		CurrentStep: "wolfAttack",
+		Mode:        mode,
 	}
 }
 

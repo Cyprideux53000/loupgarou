@@ -13,12 +13,15 @@ export interface Player {
   mayor: boolean
 }
 
+export type GameMode = 'random' | 'llm'
+
 export interface Game {
   id: string
   players: Player[]
   wolf_number: number
   night: boolean
   current_step: Phase
+  mode: GameMode
 }
 
 export interface Status {
@@ -44,4 +47,5 @@ export interface StepResponse {
 export interface CreateGameRequest {
   names: string[]
   wolf_count: number
+  mode: GameMode
 }

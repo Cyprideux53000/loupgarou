@@ -25,7 +25,10 @@ onMounted(async () => {
 
 <template>
   <div v-if="game && status" class="panel">
-    <p class="game-id-display">ID: {{ game.id }}</p>
+    <p class="game-id-display">
+      ID: {{ game.id }}
+      <span class="mode-badge" :class="game.mode">{{ game.mode === 'llm' ? 'LLM (Ollama)' : 'Random' }}</span>
+    </p>
 
     <PhaseBar :night="game.night" :current-step="game.current_step" :status="status" />
     <StatusBar :status="status" />
@@ -52,6 +55,26 @@ onMounted(async () => {
   color: #666;
   word-break: break-all;
   margin-bottom: 16px;
+}
+
+.mode-badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  padding: 2px 10px;
+  border-radius: 10px;
+  margin-left: 8px;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.mode-badge.llm {
+  background: var(--purple);
+  color: #fff;
+}
+
+.mode-badge.random {
+  background: var(--border);
+  color: var(--text-dim);
 }
 
 .players-grid {

@@ -18,6 +18,7 @@ func NewGameHandler(service service.GameService) *GameHandler {
 type createGameRequest struct {
 	Names     []string `json:"names"`
 	WolfCount int      `json:"wolf_count"`
+	Mode      string   `json:"mode"`
 }
 
 func (h *GameHandler) HandleGame(w http.ResponseWriter, r *http.Request) {
@@ -31,7 +32,7 @@ func (h *GameHandler) HandleGame(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		game, err := h.service.CreateGame(req.Names, req.WolfCount)
+		game, err := h.service.CreateGame(req.Names, req.WolfCount, req.Mode)
 		if err != nil {
 			log.Printf("[ERROR] POST /game - %s", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)

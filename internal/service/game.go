@@ -7,7 +7,7 @@ import (
 )
 
 type GameService interface {
-	CreateGame(names []string, wolfCount int) (*domain.Game, error)
+	CreateGame(names []string, wolfCount int, mode string) (*domain.Game, error)
 	GetGame(id string) (*domain.Game, error)
 	GetStatus(id string) (*domain.Status, error)
 	ExecuteStep(id string) (*domain.StepResponse, error)
@@ -21,7 +21,7 @@ func NewGameService(repo storage.GameRepository) GameService {
 	return &gameService{repo: repo}
 }
 
-func (s *gameService) CreateGame(names []string, wolfCount int) (*domain.Game, error) {
+func (s *gameService) CreateGame(names []string, wolfCount int, mode string) (*domain.Game, error) {
 	if len(names) == 0 {
 		return nil, fmt.Errorf("at least one player is required")
 	}
@@ -32,7 +32,7 @@ func (s *gameService) CreateGame(names []string, wolfCount int) (*domain.Game, e
 		return nil, fmt.Errorf("wolf count must be less than player count")
 	}
 
-	game := domain.NewGame(names, wolfCount)
+	game := domain.NewGame(names, wolfCount, mode)
 	if err := s.repo.Save(&game); err != nil {
 		return nil, fmt.Errorf("failed to save game: %w", err)
 	}
