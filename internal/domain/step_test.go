@@ -5,7 +5,7 @@ import "testing"
 func TestStepWolfAttack(t *testing.T) {
 	game := newTestGame()
 
-	result, err := game.Step(nil)
+	result, err := game.Step()
 
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
@@ -45,7 +45,7 @@ func TestStepDayVote(t *testing.T) {
 		CurrentStep: "DayVote",
 	}
 
-	result, err := game.Step(nil)
+	result, err := game.Step()
 
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
@@ -77,7 +77,7 @@ func TestStepGameAlreadyOver(t *testing.T) {
 		Night:       true,
 	}
 
-	_, err := game.Step(nil)
+	_, err := game.Step()
 
 	if err == nil {
 		t.Error("expected error when game is already over")
@@ -96,7 +96,7 @@ func TestStepInvalidPhase(t *testing.T) {
 		CurrentStep: "invalidPhase",
 	}
 
-	_, err := game.Step(nil)
+	_, err := game.Step()
 
 	if err == nil {
 		t.Error("expected error for invalid step")
@@ -127,7 +127,7 @@ func TestStepMayorKilledReassigned(t *testing.T) {
 		}
 		copy(testGame.Players, game.Players)
 
-		result, err := testGame.Step(nil)
+		result, err := testGame.Step()
 		if err != nil {
 			t.Fatalf("unexpected error: %s", err)
 		}

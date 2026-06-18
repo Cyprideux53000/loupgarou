@@ -55,7 +55,7 @@ func (m *mockService) ExecuteStep(id string) (*domain.StepResponse, error) {
 	if id != m.game.Id {
 		return nil, fmt.Errorf("game not found: %s", id)
 	}
-	result, err := m.game.Step(nil)
+	result, err := m.game.Step()
 	if err != nil {
 		return nil, err
 	}
