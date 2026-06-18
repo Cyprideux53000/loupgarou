@@ -92,71 +92,87 @@ func newTestGame() *Game {
 	}
 }
 
-func TestKillRandomAliveVillager(t *testing.T) {
+func TestAliveVillagers(t *testing.T) {
 	game := newTestGame()
 
-	victim, err := game.KillRandomAliveVillager()
-	if err != nil {
-		t.Fatalf("unexpected error: %s", err)
+	villagers := game.AliveVillagers()
+	if len(villagers) != 2 {
+		t.Errorf("expected 2 alive villagers, got %d", len(villagers))
 	}
-	if victim.Role == Wolf {
-		t.Error("victim should not be a wolf")
-	}
-	if victim.Alive {
-		t.Error("victim should be dead")
-	}
-
-	deadCount := 0
-	for _, p := range game.Players {
-		if !p.Alive {
-			deadCount++
+	for _, v := range villagers {
+		if v.Role == Wolf {
+			t.Error("AliveVillagers should not include wolves")
 		}
-	}
-	if deadCount != 1 {
-		t.Errorf("expected 1 dead player, got %d", deadCount)
 	}
 }
 
-func TestKillRandomAliveVillagerNoVillagers(t *testing.T) {
+func TestAliveVillagersNone(t *testing.T) {
 	game := &Game{
 		Id: "test",
 		Players: []Player{
 			{Id: "1", Name: "Wolf1", Role: Wolf, Alive: true},
 			{Id: "2", Name: "Wolf2", Role: Wolf, Alive: true},
 		},
-		WolfNumber: 2,
 	}
 
-	_, err := game.KillRandomAliveVillager()
-	if err == nil {
-		t.Error("expected error when no villagers alive")
+	if len(game.AliveVillagers()) != 0 {
+		t.Error("expected no alive villagers")
 	}
 }
 
-func TestKillRandomAlivePlayer(t *testing.T) {
+func TestAlivePlayers(t *testing.T) {
 	game := newTestGame()
 
-	victim, err := game.KillRandomAlivePlayer()
+	alive := game.AlivePlayers()
+	if len(alive) != 3 {
+		t.Errorf("expected 3 alive players, got %d", len(alive))
+	}
+}
+
+func TestAlivePlayersWithDead(t *testing.T) {
+	game := newTestGame()
+	game.Players[0].Alive = false
+
+	alive := game.AlivePlayers()
+	if len(alive) != 2 {
+		t.Errorf("expected 2 alive players, got %d", len(alive))
+	}
+}
+
+func TestKillPlayer(t *testing.T) {
+	game := newTestGame()
+
+	victim, err := game.KillPlayer("1")
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
+	}
+	if victim.Name != "Alice" {
+		t.Errorf("expected Alice, got %s", victim.Name)
 	}
 	if victim.Alive {
 		t.Error("victim should be dead")
 	}
+	if game.Players[0].Alive {
+		t.Error("player in game should be dead")
+	}
 }
 
-func TestKillRandomAlivePlayerNobodyAlive(t *testing.T) {
-	game := &Game{
-		Id: "test",
-		Players: []Player{
-			{Id: "1", Name: "A", Alive: false},
-			{Id: "2", Name: "B", Alive: false},
-		},
-	}
+func TestKillPlayerAlreadyDead(t *testing.T) {
+	game := newTestGame()
+	game.Players[0].Alive = false
 
-	_, err := game.KillRandomAlivePlayer()
+	_, err := game.KillPlayer("1")
 	if err == nil {
-		t.Error("expected error when no players alive")
+		t.Error("expected error when killing already dead player")
+	}
+}
+
+func TestKillPlayerNotFound(t *testing.T) {
+	game := newTestGame()
+
+	_, err := game.KillPlayer("nonexistent")
+	if err == nil {
+		t.Error("expected error for unknown player id")
 	}
 }
 

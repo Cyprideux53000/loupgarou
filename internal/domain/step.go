@@ -1,6 +1,9 @@
 package domain
 
-import "fmt"
+import (
+	"fmt"
+	"math/rand"
+)
 
 type StepResult struct {
 	Victim   Player  `json:"victim"`
@@ -19,27 +22,36 @@ func (g *Game) Step() (StepResult, error) {
 		return StepResult{}, fmt.Errorf("game is already over")
 	}
 
-	var victim Player
-	var err error
 	phase := g.CurrentStep
+
+	var candidates []Player
+	switch phase {
+	case "wolfAttack":
+		candidates = g.AliveVillagers()
+	case "DayVote":
+		candidates = g.AlivePlayers()
+	default:
+		return StepResult{}, fmt.Errorf("invalid step: %s", phase)
+	}
+
+	if len(candidates) == 0 {
+		return StepResult{}, fmt.Errorf("no eligible target for %s", phase)
+	}
+
+	// Random selection — à remplacer par un LLM plus tard
+	target := candidates[rand.Intn(len(candidates))]
+	victim, err := g.KillPlayer(target.Id)
+	if err != nil {
+		return StepResult{}, err
+	}
 
 	switch phase {
 	case "wolfAttack":
-		victim, err = g.KillRandomAliveVillager()
-		if err != nil {
-			return StepResult{}, err
-		}
 		g.CurrentStep = "DayVote"
 		g.Night = false
 	case "DayVote":
-		victim, err = g.KillRandomAlivePlayer()
-		if err != nil {
-			return StepResult{}, err
-		}
 		g.CurrentStep = "wolfAttack"
 		g.Night = true
-	default:
-		return StepResult{}, fmt.Errorf("invalid step: %s", phase)
 	}
 
 	result := StepResult{

@@ -76,78 +76,37 @@ func (g *Game) AssignNewMayor() {
 	g.setMayor(candidates[rand.Intn(len(candidates))])
 }
 
-func (g *Game) mayorBreaksTie(tied []int) int {
+func (g *Game) AliveVillagers() []Player {
+	var result []Player
 	for _, p := range g.Players {
-		if p.Mayor && p.Alive {
-			return tied[rand.Intn(len(tied))]
-		}
-	}
-	return tied[rand.Intn(len(tied))]
-}
-
-func (g *Game) KillRandomAliveVillager() (Player, error) {
-	var villagers []int
-	for i, p := range g.Players {
 		if p.Alive && p.Role != Wolf {
-			villagers = append(villagers, i)
+			result = append(result, p)
 		}
 	}
-	if len(villagers) == 0 {
-		return Player{}, fmt.Errorf("no alive villager to vote")
-	}
-
-	votes := make(map[int]int)
-	for i, p := range g.Players {
-		if !p.Alive {
-			continue
-		}
-		eligible := make([]int, 0)
-		for _, idx := range villagers {
-			if idx != i {
-				eligible = append(eligible, idx)
-			}
-		}
-		if len(eligible) == 0 {
-			continue
-		}
-		votes[eligible[rand.Intn(len(eligible))]]++
-	}
-
-	maxVotes := -1
-	var tied []int
-	for idx, count := range votes {
-		if count > maxVotes {
-			maxVotes = count
-			tied = []int{idx}
-		} else if count == maxVotes {
-			tied = append(tied, idx)
-		}
-	}
-
-	var targetIdx int
-	if len(tied) == 1 {
-		targetIdx = tied[0]
-	} else {
-		targetIdx = g.mayorBreaksTie(tied)
-	}
-
-	g.Players[targetIdx].Alive = false
-	return g.Players[targetIdx], nil
+	return result
 }
 
-func (g *Game) KillRandomAlivePlayer() (Player, error) {
-	var candidates []int
-	for i, player := range g.Players {
-		if player.Alive {
-			candidates = append(candidates, i)
+func (g *Game) AlivePlayers() []Player {
+	var result []Player
+	for _, p := range g.Players {
+		if p.Alive {
+			result = append(result, p)
 		}
 	}
-	if len(candidates) == 0 {
-		return Player{}, fmt.Errorf("no alive player to kill")
+	return result
+}
+
+func (g *Game) KillPlayer(id string) (Player, error) {
+	for i, p := range g.Players {
+		if p.Id == id {
+			if !p.Alive {
+				return Player{}, fmt.Errorf("player %s is already dead", p.Name)
+			}
+			g.Players[i].Alive = false
+			return g.Players[i], nil
+		}
 	}
-	idx := candidates[rand.Intn(len(candidates))]
-	g.Players[idx].Alive = false
-	return g.Players[idx], nil
+	return Player{}, fmt.Errorf("player not found: %s", id)
 }
 
 func (p Player) String() string {
