@@ -16,6 +16,7 @@ func main() {
 	http.HandleFunc("/game", h.HandleGame)
 	http.HandleFunc("/status", h.HandleStatus)
 	http.HandleFunc("/step", h.HandleStep)
+	http.Handle("/", http.FileServer(http.Dir("web")))
 
 	log.Println("Server listening on :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
